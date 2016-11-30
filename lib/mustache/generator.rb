@@ -1,4 +1,12 @@
 class Mustache
+  class PropertyNotWhitelistedError < StandardError
+    attr_reader :property, :message
+    def initialize(property, whitelist)
+      @property = property
+      @message = "Property #{property} not in whitelist"
+    end
+  end
+
   # The Generator is in charge of taking an array of Mustache tokens,
   # usually assembled by the Parser, and generating an interpolatable
   # Ruby string. This string is considered the "compiled" template
@@ -187,7 +195,15 @@ class Mustache
     end
 
     def on_fetch(names)
-      return "ctx.current" if names.empty?
+      names = ["current"] if names.empty?
+
+      # Raise an exception if they attempt to resolve a non-whitelisted property and they set a whitelist.
+      unless @options[:property_whitelist].nil?
+        property = names.map(&:to_s).join('.')
+        unless @options[:property_whitelist].include?(property)
+          raise PropertyNotWhitelistedError.new(property, @options[:property_whitelist])
+        end
+      end
 
       names = names.map { |n| n.to_sym }
 
